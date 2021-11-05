@@ -8,7 +8,7 @@ import numpy as np
 
 
 def main():
-    raw = getRawData('AAPL',2019)
+    raw = getRawData()
     X_train, X_test, y_train, y_test = preprocessData(raw)
     model = trainModel((X_train,y_train))
     preds = getPredictions((X_test,y_test),model)
