@@ -25,5 +25,4 @@ def predict_random_image(generator):
     lr = img.resize(lr_shape)
     lr.show()
     sr_img = generator.predict(np.array(lr)[np.newaxis, ...])
-    print(sr_img[0].shape)
     Image.fromarray(deprocess_image(sr_img[0])).show()
