@@ -14,7 +14,7 @@ def preprocess_image(img):
 
 
 def deprocess_image(img):
-    return np.clip((img + 1) * 255, 0, 255).astype(np.uint8)
+    return np.clip((img + 1) * 128, 0, 255).astype(np.uint8)
 
 
 def predict_random_image(generator):
