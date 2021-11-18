@@ -7,5 +7,16 @@ class CONFIG:
     HR_DIR = 'high_res'
     LR_START = 1e-4
     BATCH_SIZE = 2
-    SAVE_INTERVAL = 100
+    BATCH_SIZE_INIT = 4
+    SAVE_INTERVAL = 1
+    SAVE_INTERVAL_INIT = 10
+    PREVIEW_INTERVAL = 1
+    ALTERNATE_INTERVAL = 10
+    USE_INIT = False
     SAVE_DIR = 'saved_weights'
+    LOAD_WEIGHTS = False
+    VGG_WEIGHT = 1
+    D_WEIGHT = 1e-3
+    MSE_WEIGHT = 1e-4
+    D_INPUT_RANDOM = 0.1
+    MOMENTUM = 0.5
