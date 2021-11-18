@@ -34,6 +34,7 @@ class DataGenerator(keras.utils.Sequence):
             width, height = img.size
             hr_img = preprocess_image(np.array(img))
             lr_img = preprocess_image(np.array(img.resize((width // self.down_sample_scale, height // self.down_sample_scale))))
+
             hr_batch[idx % self.batch_size] = hr_img
             lr_batch[idx % self.batch_size] = lr_img
         return lr_batch, hr_batch
