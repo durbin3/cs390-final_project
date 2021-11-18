@@ -1,2 +1,6 @@
 high_res/
 low_res/
+images/
+saved_weights/
+
+*.zip

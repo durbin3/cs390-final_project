@@ -1,7 +1,7 @@
 from tensorflow.keras.applications.vgg19 import VGG19
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Conv2D, Input, PReLU, BatchNormalization, Add, Dense, LeakyReLU, Flatten, UpSampling2D
-from tensorflow.keras.activations import sigmoid
+from tensorflow.keras.activations import tanh,sigmoid
 import tensorflow as tf
 from config import CONFIG
 
@@ -31,7 +31,7 @@ def get_generator(input_shape):
     x = UpSampling2D(CONFIG.DOWN_SAMPLE_SCALE // 2)(x)
     x = PReLU()(x)
 
-    x = Conv2D(3, 1, padding='same', activation=sigmoid)(x)
+    x = Conv2D(3, 1, padding='same', activation=tanh)(x)
     return Model(inputs=inp, outputs=x, name='srgan_generator')
 
 
@@ -75,4 +75,4 @@ def get_vgg(input_shape):
         input_shape=input_shape,
         weights='imagenet'
     )
-    return Model(inputs=vgg19.inputs, outputs=vgg19.get_layer('block5_conv4').output, name='srgan_vgg')
+    return Model(inputs=vgg19.inputs, outputs=vgg19.layers[9].output, name='srgan_vgg')

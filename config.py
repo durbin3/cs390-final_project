@@ -6,6 +6,6 @@ class CONFIG:
     INPUT_SHAPE = (256, 256, 3)
     HR_DIR = 'high_res'
     LR_START = 1e-4
-    BATCH_SIZE = 2
-    SAVE_INTERVAL = 100
+    BATCH_SIZE = 4
+    SAVE_INTERVAL = 5
     SAVE_DIR = 'saved_weights'
