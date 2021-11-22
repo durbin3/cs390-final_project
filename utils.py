@@ -2,6 +2,7 @@ import os
 from config import CONFIG
 from PIL import Image
 import numpy as np
+import tensorflow as tf
 
 
 def create_dir_if_not_exist(dir_name):
@@ -12,8 +13,12 @@ def create_dir_if_not_exist(dir_name):
 def preprocess_image(img):
     return (img - 128) / 128
 
+
 def deprocess_image(img):
-    return np.clip((img + 1) * 128, 0, 255).astype(np.uint8)
+    if isinstance(img, np.ndarray):
+        return np.clip((img + 1) * 128, 0, 255).astype(np.uint8)
+    else:
+        return tf.multiply(tf.add(img, 1), 127.5)
 
 
 def predict_random_image(generator):
