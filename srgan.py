@@ -10,7 +10,6 @@ from model import *
 from datagen import DataGenerator
 import numpy as np
 from utils import *
-from tensorflow.python.framework.ops import numpy_text
 physical_devices = tf.config.list_physical_devices('GPU')
 print(physical_devices)
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -61,7 +60,6 @@ def train():
         d_loss = 0
         print("Epoch: ", epoch)
         for step, (lr_batch, hr_batch) in enumerate(datagen):
-            # print("\tStep: ", step, "/",datagen.__len__(),end='\r')
             print("\tStep: ",step,"/", min(500,datagen.__len__()),end='\r')
             if (step >= min(500,datagen.__len__())):
                 print()
@@ -79,10 +77,7 @@ def train():
 
             # train gan
             gan_loss = gan.train_on_batch(lr_batch, [hr_batch, tf.ones(CONFIG.BATCH_SIZE)])
-            # print(f'Training epoch {epoch} step {step}')
-            # print(f'\tdiscriminator loss: {d_loss}')
-            # print(f'\tdiscriminator accuracy: {100 * d_loss[1]}%')
-            # print(f'\tgan loss: {gan_loss}')
+
 
         if epoch % CONFIG.SAVE_INTERVAL == 0:
             create_dir_if_not_exist(CONFIG.SAVE_DIR)
