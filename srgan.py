@@ -98,9 +98,11 @@ def train():
     generator.compile(loss=vgg_loss(vgg), optimizer=Adam(learning_rate=CONFIG.LR_START))
     for epoch in range(CONFIG.N_EPOCH):
         print("Epoch: ",epoch)
+        d_loss = 0
+        gan_loss = 0
         for step, (lr_batch, hr_batch) in enumerate(datagen):
-            print("\tStep: ",step,"/", min(500,datagen.__len__()),end='\r')
-            if (step >= min(500,datagen.__len__())):
+            print("\tStep: ",step,"/", min(200,datagen.__len__()),end='\r')
+            if (step >= min(200,datagen.__len__())):
                 print()
                 step = 0
                 break
@@ -122,7 +124,6 @@ def train():
                 generator.trainable = True
                 gan_loss = gan.train_on_batch(lr_batch, [hr_batch, tf.ones(CONFIG.BATCH_SIZE)])
                 generator.trainable = False
-                print(f'\tgan loss: {gan_loss}')
 
         if epoch % CONFIG.PREVIEW_INTERVAL == 0:
             predict_random_image(generator)
@@ -132,6 +133,9 @@ def train():
             generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
             discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
         datagen.on_epoch_end()
+        print("Epoch Loss:")
+        print(f'\tdiscriminator loss: {d_loss}')
+        print(f'\tgan loss: {gan_loss}')
 
 
 def main():
