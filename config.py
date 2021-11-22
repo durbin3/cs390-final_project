@@ -1,13 +1,13 @@
 class CONFIG:
     B = 16
     DOWN_SAMPLE_SCALE = 4
-    N_INIT_EPOCH = 100
+    N_INIT_EPOCH = 30
     N_EPOCH = 1000
     INPUT_SHAPE = (256, 256, 3)
     HR_DIR = 'high_res'
     LR_START = 1e-4
     BATCH_SIZE = 2
-    BATCH_SIZE_INIT = 4
+    BATCH_SIZE_INIT = 8
     SAVE_INTERVAL = 1
     SAVE_INTERVAL_INIT = 10
     PREVIEW_INTERVAL = 1

@@ -1,9 +1,10 @@
 import os
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # uncomment if using cpu
 from tensorflow import keras
-from tensorflow.keras.losses import MeanSquaredError, binary_crossentropy
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import MeanSquaredError, binary_crossentropy, BinaryCrossentropy
+from tensorflow.keras.optimizers import Adam, SGD
 import tensorflow as tf
 from config import CONFIG
 from model import *
@@ -11,7 +12,6 @@ from datagen import DataGenerator
 import numpy as np
 from utils import *
 import tensorflow.keras.backend as K
-
 
 physical_devices = tf.config.list_physical_devices('GPU')
 if len(physical_devices) > 0:
@@ -29,12 +29,14 @@ def vgg_loss(vgg):
         y_pred = deprocess_image(y_pred)
         ret = mse_loss(vgg(y_true), vgg(y_pred))
         return ret
+
     return loss
 
 
 def content_loss(vgg):
     def loss(y_true, y_pred):
         return CONFIG.MSE_WEIGHT * mse_loss(y_true, y_pred) + vgg_loss(vgg)(y_true, y_pred)
+
     return loss
 
 
@@ -75,49 +77,34 @@ def train():
         if os.path.exists(discriminator_path):
             discriminator.load_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
 
-    discriminator.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=CONFIG.LR_START), metrics=['accuracy'])
     gan = build_gan(generator, discriminator, vgg)
-
     predict_random_image(generator)
 
-    if CONFIG.USE_INIT:
-        # initial training using mse loss
-        generator.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=CONFIG.LR_START))
-        for epoch in range(CONFIG.N_INIT_EPOCH):
-            for step, (lr_batch, hr_batch) in enumerate(datagen_init):
-                gen_loss = generator.train_on_batch(lr_batch, hr_batch)
-                if step % 100 == 0:
-                    print(f'initial training epoch {epoch} step {step}')
-                    print(f'\tgenerator loss: {gen_loss}')
-            if epoch % CONFIG.SAVE_INTERVAL_INIT == 0:
-                create_dir_if_not_exist(CONFIG.SAVE_DIR)
-                predict_random_image(generator)
-                generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
+    discriminator.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=0.1), metrics=['accuracy'])
 
-    # gan training
-    generator.compile(loss=vgg_loss(vgg), optimizer=Adam(learning_rate=CONFIG.LR_START))
     for epoch in range(CONFIG.N_EPOCH):
-        for step, (lr_batch, hr_batch) in enumerate(datagen):
-            sr_batch = generator.predict(lr_batch)
-
-            print(f'Training epoch {epoch} step {step}')
-            # train discriminator
-            if ((epoch * len(datagen) + step) // CONFIG.ALTERNATE_INTERVAL) % 2 == 0:
-                discriminator.trainable = True
-
-                d_loss_real = discriminator.train_on_batch(hr_batch, np.ones(CONFIG.BATCH_SIZE) - \
-                                                           np.random.random(CONFIG.BATCH_SIZE) * CONFIG.D_INPUT_RANDOM)
-                d_loss_gen = discriminator.train_on_batch(sr_batch,
-                                                          np.random.random(CONFIG.BATCH_SIZE) * CONFIG.D_INPUT_RANDOM)
-                d_loss = np.add(d_loss_real, d_loss_gen) / 2
-                discriminator.trainable = False
-                print(f'\tdiscriminator loss: {d_loss}')
-            else:
-                # train gan
+        # train discriminator
+        if epoch % 2 == 0:
+            discriminator.trainable = True
+            for _ in range(5):
+                for step, (lr_batch, hr_batch) in enumerate(datagen_init):
+                    sr_batch = generator.predict(lr_batch)
+                    print(f'Training epoch {epoch} step {step}')
+                    d_loss_real = discriminator.train_on_batch(hr_batch, np.zeros(CONFIG.BATCH_SIZE_INIT))
+                    d_loss_gen = discriminator.train_on_batch(sr_batch, np.ones(CONFIG.BATCH_SIZE_INIT))
+                    d_loss = np.add(d_loss_real, d_loss_gen) / 2
+                    print(f'\tdiscriminator loss: {d_loss}')
+                datagen_init.on_epoch_end()
+            discriminator.trainable = False
+        else:
+            # train gan
+            for step, (lr_batch, hr_batch) in enumerate(datagen):
+                print(f'Training epoch {epoch} step {step}')
                 generator.trainable = True
-                gan_loss = gan.train_on_batch(lr_batch, [hr_batch, tf.ones(CONFIG.BATCH_SIZE)])
+                gan_loss = gan.train_on_batch(lr_batch, [hr_batch, tf.zeros(CONFIG.BATCH_SIZE)])
                 generator.trainable = False
                 print(f'\tgan loss: {gan_loss}')
+            datagen.on_epoch_end()
 
         if epoch % CONFIG.PREVIEW_INTERVAL == 0:
             predict_random_image(generator)
@@ -126,8 +113,6 @@ def train():
             create_dir_if_not_exist(CONFIG.SAVE_DIR)
             generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
             discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
-        datagen.on_epoch_end()
-
 
 def main():
     train()
