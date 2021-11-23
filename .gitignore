@@ -1,2 +1,7 @@
 high_res/
+*.zip
 low_res/
+images/
+saved_weights/
+__pycache__/
+epoch62_first/
