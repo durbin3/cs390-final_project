@@ -1,37 +1,41 @@
 from tensorflow.keras.applications.vgg19 import VGG19
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Conv2D, Input, PReLU, BatchNormalization, Add, Dense, LeakyReLU, Flatten, UpSampling2D
+from tensorflow.keras.layers import Conv2D, Input, PReLU, BatchNormalization, Add, Dense, LeakyReLU, Flatten, \
+    UpSampling2D
 from tensorflow.keras.activations import sigmoid
+from tensorflow.keras.initializers import RandomNormal
 import tensorflow as tf
 from config import CONFIG
 
 
 def get_generator(input_shape):
+    init = RandomNormal(mean=0.0, stddev=0.02)
+
     inp = Input(input_shape)
-    x = Conv2D(64, 9, padding='same', activation=PReLU())(inp)
+    x = Conv2D(64, 9, padding='same', activation=PReLU(), kernel_initializer=init)(inp)
     conv1 = x
 
     for _ in range(CONFIG.B):
-        rx = Conv2D(64, 3, padding='same')(x)
+        rx = Conv2D(64, 3, padding='same', kernel_initializer=init)(x)
         rx = BatchNormalization(momentum=CONFIG.MOMENTUM)(rx)
         rx = PReLU(shared_axes=[1, 2])(rx)
-        rx = Conv2D(64, 3, padding='same')(rx)
+        rx = Conv2D(64, 3, padding='same', kernel_initializer=init)(rx)
         rx = BatchNormalization(momentum=CONFIG.MOMENTUM)(rx)
         rx = Add()([rx, x])
         x = rx
 
-    x = Conv2D(64, 3, padding='same')(x)
+    x = Conv2D(64, 3, padding='same', kernel_initializer=init)(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = Add()([x, conv1])
 
-    x = Conv2D(256, 3, padding='same')(x)
+    x = Conv2D(256, 3, padding='same', kernel_initializer=init)(x)
     x = UpSampling2D(CONFIG.DOWN_SAMPLE_SCALE // 2)(x)
     x = PReLU(shared_axes=[1, 2])(x)
-    x = Conv2D(256, 3, padding='same')(x)
+    x = Conv2D(256, 3, padding='same', kernel_initializer=init)(x)
     x = UpSampling2D(CONFIG.DOWN_SAMPLE_SCALE // 2)(x)
     x = PReLU(shared_axes=[1, 2])(x)
 
-    x = Conv2D(3, 9, padding='same', activation='tanh')(x)
+    x = Conv2D(3, 9, padding='same', activation='tanh', kernel_initializer=init)(x)
     return Model(inputs=inp, outputs=x, name='srgan_generator')
 
 
