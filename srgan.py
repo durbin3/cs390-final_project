@@ -58,10 +58,10 @@ def train():
                             CONFIG.INPUT_SHAPE,
                             down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
                             batch_size=CONFIG.BATCH_SIZE)
-    datagen_init = DataGenerator(CONFIG.HR_DIR,
-                                 CONFIG.INPUT_SHAPE,
-                                 down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
-                                 batch_size=CONFIG.BATCH_SIZE_INIT)
+    datagen_d = DataGenerator(CONFIG.HR_DIR,
+                              CONFIG.INPUT_SHAPE,
+                              down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
+                              batch_size=CONFIG.BATCH_SIZE_D)
 
     generator = get_generator((
         CONFIG.INPUT_SHAPE[0] // CONFIG.DOWN_SAMPLE_SCALE,
@@ -86,22 +86,21 @@ def train():
         # train discriminator
         if epoch % 2 == 0:
             discriminator.trainable = True
-            for _ in range(5):
-                for step, (lr_batch, hr_batch) in enumerate(datagen_init):
-                    sr_batch = generator.predict(lr_batch)
-                    print(f'Training epoch {epoch} step {step}')
-                    d_loss_real = discriminator.train_on_batch(hr_batch, np.zeros(CONFIG.BATCH_SIZE_INIT))
-                    d_loss_gen = discriminator.train_on_batch(sr_batch, np.ones(CONFIG.BATCH_SIZE_INIT))
-                    d_loss = np.add(d_loss_real, d_loss_gen) / 2
-                    print(f'\tdiscriminator loss: {d_loss}')
-                datagen_init.on_epoch_end()
+            for step, (lr_batch, hr_batch) in enumerate(datagen_d):
+                sr_batch = generator.predict(lr_batch)
+                print(f'Training epoch {epoch} step {step}')
+                d_loss_real = discriminator.train_on_batch(hr_batch, create_noisy_labels(0, CONFIG.BATCH_SIZE_D))
+                d_loss_gen = discriminator.train_on_batch(sr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE_D))
+                d_loss = np.add(d_loss_real, d_loss_gen) / 2
+                print(f'\tdiscriminator loss: {d_loss}')
+            datagen_d.on_epoch_end()
             discriminator.trainable = False
         else:
             # train gan
             for step, (lr_batch, hr_batch) in enumerate(datagen):
                 print(f'Training epoch {epoch} step {step}')
                 generator.trainable = True
-                gan_loss = gan.train_on_batch(lr_batch, [hr_batch, tf.zeros(CONFIG.BATCH_SIZE)])
+                gan_loss = gan.train_on_batch(lr_batch, [hr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE)])
                 generator.trainable = False
                 print(f'\tgan loss: {gan_loss}')
             datagen.on_epoch_end()
@@ -113,6 +112,7 @@ def train():
             create_dir_if_not_exist(CONFIG.SAVE_DIR)
             generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
             discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
+
 
 def main():
     train()

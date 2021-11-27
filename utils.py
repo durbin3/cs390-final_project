@@ -10,6 +10,16 @@ def create_dir_if_not_exist(dir_name):
         os.makedirs(dir_name)
 
 
+def create_noisy_labels(true_label, size):
+    if true_label == 1:
+        labels = np.ones(size) - np.random.random(size) * CONFIG.D_INPUT_RANDOM
+    else:
+        labels = np.random.random(size) * CONFIG.D_INPUT_RANDOM
+    flip_idx = np.random.choice(size, int(size * CONFIG.RAND_FLIP), replace=False)
+    labels[flip_idx] = 1 - labels[flip_idx]
+    return labels
+
+
 def preprocess_image(img):
     return (img - 128) / 128
 

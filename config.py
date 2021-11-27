@@ -8,6 +8,7 @@ class CONFIG:
     LR_START = 1e-4
     BATCH_SIZE = 2
     BATCH_SIZE_INIT = 8
+    BATCH_SIZE_D = 8
     SAVE_INTERVAL = 1
     SAVE_INTERVAL_INIT = 10
     PREVIEW_INTERVAL = 1
@@ -19,4 +20,5 @@ class CONFIG:
     D_WEIGHT = 1e-3
     MSE_WEIGHT = 1e-4
     D_INPUT_RANDOM = 0.1
+    RAND_FLIP = 0.05
     MOMENTUM = 0.5
