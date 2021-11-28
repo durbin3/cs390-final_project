@@ -10,6 +10,16 @@ def create_dir_if_not_exist(dir_name):
         os.makedirs(dir_name)
 
 
+def create_noisy_labels(true_label, size):
+    if true_label == 1:
+        labels = np.ones(size) - np.random.random(size) * CONFIG.D_INPUT_RANDOM
+    else:
+        labels = np.random.random(size) * CONFIG.D_INPUT_RANDOM
+    flip_idx = np.random.choice(size, int(size * CONFIG.RAND_FLIP), replace=False)
+    labels[flip_idx] = 1 - labels[flip_idx]
+    return labels
+
+
 def preprocess_image(img):
     return (img - 127.5) / 127.5
 
@@ -21,13 +31,35 @@ def deprocess_image(img):
         return tf.multiply(tf.add(img, 1), 127.5)
 
 
-def predict_random_image(generator):
-    create_dir_if_not_exist("images")
+def log_random_image(generator, writer):
     images = os.listdir(CONFIG.HR_DIR)
     img = Image.open(f'{CONFIG.HR_DIR}/{np.random.choice(images, 1)[0]}')
     lr_shape = tuple([CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)])
     lr = img.resize(lr_shape)
     sr_img = generator.predict(np.array(lr)[np.newaxis, ...])
+    sr_img = deprocess_image(sr_img[0])
+    with writer.as_default():
+        tf.summary.image('hr_image', img)
+        tf.summary.image('sr_image', sr_img)
+
+
+def predict_random_image(generator, show=False):
+    images = os.listdir(CONFIG.HR_DIR)
+    img = Image.open(f'{CONFIG.HR_DIR}/{np.random.choice(images, 1)[0]}')
+    if show:
+        img.show()
+    else:
+        img.save("images/hr.jpg")
+    lr_shape = tuple([CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)])
+    lr = img.resize(lr_shape)
+    if show:
+        lr.show()
+    else: 
+        lr.save("images/lr.jpg")
+    sr_img = generator.predict(np.array(lr)[np.newaxis, ...])
     output_image = Image.fromarray(deprocess_image(sr_img[0]))
-    img.save("images/test_image.jpg")
-    output_image.save("images/output_image.jpg")
+    if show:
+        output_image.show()
+    else:
+        output_image.save("images/generated.jpg")
+    return sr_img[0]

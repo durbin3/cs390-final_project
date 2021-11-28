@@ -1,7 +1,7 @@
 from tensorflow.keras.applications.vgg19 import VGG19
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Conv2D, Input, PReLU, BatchNormalization, Add, Dense, LeakyReLU, Flatten, \
-    UpSampling2D
+    UpSampling2D, Dropout
 from tensorflow.keras.activations import sigmoid
 from tensorflow.keras.initializers import RandomNormal
 import tensorflow as tf
@@ -13,27 +13,33 @@ def get_generator(input_shape):
 
     inp = Input(input_shape)
     x = Conv2D(64, 9, padding='same', activation=PReLU(), kernel_initializer=init)(inp)
+    x = Dropout(0.2)(x)
     conv1 = x
 
     for _ in range(CONFIG.B):
         rx = Conv2D(64, 3, padding='same', kernel_initializer=init)(x)
         rx = BatchNormalization(momentum=CONFIG.MOMENTUM)(rx)
         rx = PReLU(shared_axes=[1, 2])(rx)
+        rx = Dropout(0.2)(rx)
         rx = Conv2D(64, 3, padding='same', kernel_initializer=init)(rx)
         rx = BatchNormalization(momentum=CONFIG.MOMENTUM)(rx)
+        rx = Dropout(0.2)(rx)
         rx = Add()([rx, x])
         x = rx
 
     x = Conv2D(64, 3, padding='same', kernel_initializer=init)(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
+    x = PReLU(shared_axes=[1, 2])(x)
     x = Add()([x, conv1])
 
     x = Conv2D(256, 3, padding='same', kernel_initializer=init)(x)
     x = UpSampling2D(CONFIG.DOWN_SAMPLE_SCALE // 2)(x)
     x = PReLU(shared_axes=[1, 2])(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(256, 3, padding='same', kernel_initializer=init)(x)
     x = UpSampling2D(CONFIG.DOWN_SAMPLE_SCALE // 2)(x)
     x = PReLU(shared_axes=[1, 2])(x)
+    x = Dropout(0.2)(x)
 
     x = Conv2D(3, 9, padding='same', activation='tanh', kernel_initializer=init)(x)
     return Model(inputs=inp, outputs=x, name='srgan_generator')
@@ -44,27 +50,35 @@ def get_discriminator(input_shape):
     x = Conv2D(64, 3, 1, padding='same')(inp)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(64, 3, 2, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(128, 3, 1, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(128, 3, 2, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(256, 3, 1, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(256, 3, 2, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(512, 3, 1, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Conv2D(512, 3, 2, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
+    x = Dropout(0.2)(x)
 
     x = Flatten()(x)
     x = Dense(1024)(x)
