@@ -15,6 +15,7 @@ from utils import *
 import tensorflow.keras.backend as K
 from tensorboard import program
 import datetime
+import matplotlib.pyplot as plt
 
 physical_devices = tf.config.list_physical_devices('GPU')
 if len(physical_devices) > 0:
@@ -49,7 +50,7 @@ def build_gan(generator, discriminator, vgg) -> Model:
     generator_input = Input(input_shape)
     generator_output = generator(generator_input)
     gan = Model(inputs=generator_input, outputs=[generator_output, discriminator(generator_output)])
-    gan.compile(loss=[vgg_loss(vgg), 'binary_crossentropy'],
+    gan.compile(loss=['mse', 'binary_crossentropy'],
                 loss_weights=[CONFIG.VGG_WEIGHT, CONFIG.D_WEIGHT],
                 optimizer=Adam(learning_rate=CONFIG.LR_START))
     return gan
@@ -87,8 +88,6 @@ def train():
             discriminator.load_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
 
     gan = build_gan(generator, discriminator, vgg)
-    predict_random_image(generator)
-
     discriminator.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=0.1))
 
     iter = 0
@@ -120,7 +119,8 @@ def train():
             datagen.on_epoch_end()
 
         if epoch % CONFIG.PREVIEW_INTERVAL == 0:
-            predict_random_image(generator)
+            # predict_random_image(generator)
+            log_random_image(generator, writer)
 
         if epoch % CONFIG.SAVE_INTERVAL == 0:
             create_dir_if_not_exist(CONFIG.SAVE_DIR)

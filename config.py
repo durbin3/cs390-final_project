@@ -15,10 +15,10 @@ class CONFIG:
     ALTERNATE_INTERVAL = 10
     USE_INIT = False
     SAVE_DIR = 'saved_weights'
-    LOAD_WEIGHTS = False
+    LOAD_WEIGHTS = True
     VGG_WEIGHT = 1
     D_WEIGHT = 1e-3
     MSE_WEIGHT = 1e-4
     D_INPUT_RANDOM = 0.1
     RAND_FLIP = 0.05
-    MOMENTUM = 0.5
+    MOMENTUM = 0.99

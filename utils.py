@@ -31,12 +31,28 @@ def deprocess_image(img):
         return tf.multiply(tf.add(img, 1), 127.5)
 
 
-def predict_random_image(generator):
+def log_random_image(generator, writer):
     images = os.listdir(CONFIG.HR_DIR)
     img = Image.open(f'{CONFIG.HR_DIR}/{np.random.choice(images, 1)[0]}')
-    img.show()
     lr_shape = tuple([CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)])
     lr = img.resize(lr_shape)
-    lr.show()
     sr_img = generator.predict(np.array(lr)[np.newaxis, ...])
-    Image.fromarray(deprocess_image(sr_img[0])).show()
+    sr_img = deprocess_image(sr_img[0])
+    with writer.as_default():
+        tf.summary.image('hr_image', img)
+        tf.summary.image('sr_image', sr_img)
+
+
+def predict_random_image(generator, show=True):
+    images = os.listdir(CONFIG.HR_DIR)
+    img = Image.open(f'{CONFIG.HR_DIR}/{np.random.choice(images, 1)[0]}')
+    if show:
+        img.show()
+    lr_shape = tuple([CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)])
+    lr = img.resize(lr_shape)
+    if show:
+        lr.show()
+    sr_img = generator.predict(np.array(lr)[np.newaxis, ...])
+    if show:
+        Image.fromarray(deprocess_image(sr_img[0])).show()
+    return sr_img[0]
