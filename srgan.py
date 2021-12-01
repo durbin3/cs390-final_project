@@ -29,19 +29,16 @@ def mse_loss(y_true, y_pred):
 
 def vgg_loss(vgg):
     def loss(y_true, y_pred):
-        y_true = deprocess_image(y_true)
-        y_pred = deprocess_image(y_pred)
+        y_true = denormalize_image(y_true)
+        y_pred = denormalize_image(y_pred)
         ret = mse_loss(vgg(y_true), vgg(y_pred))
         return ret
 
     return loss
 
 
-def content_loss(vgg):
-    def loss(y_true, y_pred):
-        return CONFIG.MSE_WEIGHT * mse_loss(y_true, y_pred) + vgg_loss(vgg)(y_true, y_pred)
-
-    return loss
+def discriminator_loss(y_true, y_pred):
+    return K.sum(-K.log(y_pred))
 
 
 def build_gan(generator, discriminator, vgg) -> Model:
@@ -57,13 +54,6 @@ def build_gan(generator, discriminator, vgg) -> Model:
 
 
 def train():
-    log_dir = 'logs/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    writer = tf.summary.create_file_writer(log_dir, flush_millis=1000)
-    tb = program.TensorBoard()
-    tb.configure(argv=[None, '--logdir', log_dir, '--reload_interval', '1'])
-    url = tb.launch()
-    print(f"Tensorflow listening on {url}")
-
     datagen = DataGenerator(CONFIG.HR_DIR,
                             CONFIG.INPUT_SHAPE,
                             down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
@@ -88,9 +78,12 @@ def train():
             discriminator.load_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
 
     gan = build_gan(generator, discriminator, vgg)
-    discriminator.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=0.1))
+    discriminator.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=CONFIG.LR_START))
 
-    iter = 0
+    logger = Logger(generator, discriminator)
+    logger.log_image()
+    logger.log_img_distribution()
+
     for epoch in range(CONFIG.N_EPOCH):
         print(f'Training epoch {epoch}')
         # train discriminator
@@ -98,12 +91,11 @@ def train():
             discriminator.trainable = True
             for step, (lr_batch, hr_batch) in enumerate(datagen_d):
                 sr_batch = generator.predict(lr_batch)
-                d_loss_real = discriminator.train_on_batch(hr_batch, create_noisy_labels(0, CONFIG.BATCH_SIZE_D))
-                d_loss_gen = discriminator.train_on_batch(sr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE_D))
+                d_loss_real = discriminator.train_on_batch(hr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE_D))
+                d_loss_gen = discriminator.train_on_batch(sr_batch, create_noisy_labels(0, CONFIG.BATCH_SIZE_D))
                 d_loss = np.add(d_loss_real, d_loss_gen) / 2
-                iter += 1
-                with writer.as_default():
-                    tf.summary.scalar('discriminator_loss', d_loss, step=iter)
+                logger.step()
+                logger.log_loss('discriminator loss', d_loss)
             datagen_d.on_epoch_end()
             discriminator.trainable = False
         else:
@@ -113,14 +105,15 @@ def train():
                 gan_loss = gan.train_on_batch(lr_batch, [hr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE)])
                 generator.trainable = False
                 # print(f'\tgan loss: {gan_loss}')
-                iter += 1
-                with writer.as_default():
-                    tf.summary.scalar('gan_loss', gan_loss[0], step=iter)
+                logger.step()
+                logger.log_loss('GAN loss', gan_loss[0])
             datagen.on_epoch_end()
 
         if epoch % CONFIG.PREVIEW_INTERVAL == 0:
             # predict_random_image(generator)
-            log_random_image(generator, writer)
+            logger.log_image()
+            logger.log_img_distribution()
+            logger.log_weights()
 
         if epoch % CONFIG.SAVE_INTERVAL == 0:
             create_dir_if_not_exist(CONFIG.SAVE_DIR)
@@ -130,6 +123,22 @@ def train():
 
 def main():
     train()
+
+def test():
+    datagen = DataGenerator(CONFIG.HR_DIR,
+                            CONFIG.INPUT_SHAPE,
+                            down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
+                            batch_size=CONFIG.BATCH_SIZE)
+
+    for lr, hr in datagen:
+        print(hr.shape)
+        print(np.min(hr))
+        print(np.max(hr))
+        print(hr)
+        print(np.min(lr))
+        print(np.max(lr))
+        # for i in range(10):
+        #     Image.fromarray(hr[i].astype(np.uint8)).show()
 
 
 if __name__ == '__main__':
