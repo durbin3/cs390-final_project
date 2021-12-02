@@ -15,7 +15,7 @@ class CONFIG:
     ALTERNATE_INTERVAL = 10
     USE_INIT = False
     SAVE_DIR = 'saved_weights'
-    LOAD_WEIGHTS = True
+    LOAD_WEIGHTS = False
     VGG_WEIGHT = 1
     D_WEIGHT = 1e-3
     MSE_WEIGHT = 1e-4

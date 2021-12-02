@@ -46,9 +46,13 @@ def build_gan(generator, discriminator, vgg) -> Model:
     input_shape = (*[CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)], 3)
     generator_input = Input(input_shape)
     generator_output = generator(generator_input)
-    gan = Model(inputs=generator_input, outputs=[generator_output, discriminator(generator_output)])
-    gan.compile(loss=['mse', 'binary_crossentropy'],
-                loss_weights=[CONFIG.VGG_WEIGHT, CONFIG.D_WEIGHT],
+    # gan = Model(inputs=generator_input, outputs=[generator_output, discriminator(generator_output)])
+    # gan.compile(loss=['mse', 'binary_crossentropy'],
+    #             loss_weights=[CONFIG.VGG_WEIGHT, CONFIG.D_WEIGHT],
+    #             optimizer=Adam(learning_rate=CONFIG.LR_START))
+    gan = Model(inputs=generator_input, outputs=[generator_output])
+    gan.compile(loss=['mse'],
+                loss_weights=[CONFIG.VGG_WEIGHT],
                 optimizer=Adam(learning_rate=CONFIG.LR_START))
     return gan
 
@@ -102,11 +106,12 @@ def train():
             # train gan
             for step, (lr_batch, hr_batch) in enumerate(datagen):
                 generator.trainable = True
-                gan_loss = gan.train_on_batch(lr_batch, [hr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE)])
+                # gan_loss = gan.train_on_batch(lr_batch, [hr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE)])
+                gan_loss = gan.train_on_batch(lr_batch, [hr_batch])
                 generator.trainable = False
                 # print(f'\tgan loss: {gan_loss}')
                 logger.step()
-                logger.log_loss('GAN loss', gan_loss[0])
+                logger.log_loss('GAN loss', gan_loss)
             datagen.on_epoch_end()
 
         if epoch % CONFIG.PREVIEW_INTERVAL == 0:
