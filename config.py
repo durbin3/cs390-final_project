@@ -6,7 +6,7 @@ class CONFIG:
     INPUT_SHAPE = (256, 256, 3)
     HR_DIR = 'high_res'
     LR_START = 1e-4
-    BATCH_SIZE = 2
+    BATCH_SIZE = 4
     BATCH_SIZE_INIT = 8
     BATCH_SIZE_D = 8
     SAVE_INTERVAL = 2

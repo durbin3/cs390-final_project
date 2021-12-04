@@ -21,14 +21,17 @@ def create_noisy_labels(true_label, size):
 
 
 def preprocess_image(img):
-    return (img - 127.5) / 127.5
+    # return (img - 127.5) / 127.5
+    return img/255
 
 
 def deprocess_image(img):
     if isinstance(img, np.ndarray):
-        return np.clip((img + 1) * 127.5, 0, 255).astype(np.uint8)
+        # return np.clip((img + 1) * 127.5, 0, 255).astype(np.uint8)
+        return np.clip(img*255,0,255).astype(np.uint8)
     else:
-        return tf.multiply(tf.add(img, 1), 127.5)
+        # return tf.multiply(tf.add(img, 1), 127.5)
+        return tf.multiply(img,255)
 
 
 def log_random_image(generator, writer):

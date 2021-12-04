@@ -6,6 +6,8 @@ import pandas as pd
 from PIL import Image
 import numpy as np 
 import os
+import tensorflow.keras.backend as K
+
 import matplotlib.pyplot as plt
 from config import *
 from datagen import DataGenerator
@@ -37,7 +39,7 @@ def buildModel(lr_shape,hr_shape):
     vgg.trainable = False
     
     gan = build_gan(generator,discriminator,vgg,lr_shape,hr_shape)
-    gan.compile(loss=['binary_crossentropy','mse'],loss_weights=[1e-3,1],optimizer='adam')
+    gan.compile(loss=['binary_crossentropy',wasserstein_loss ],loss_weights=[1e-3,1],optimizer='adam')
     return generator,discriminator,vgg,gan
 
 def trainModel(gan,generator,discriminator,vgg,data):
@@ -45,8 +47,10 @@ def trainModel(gan,generator,discriminator,vgg,data):
     epochs = 1000
     for e in range(epochs):
         print("Epoch: ",e)
-        gen_label = np.zeros((CONFIG.BATCH_SIZE, 1))
-        real_label = np.ones((CONFIG.BATCH_SIZE,1))
+        # gen_label = np.zeros((CONFIG.BATCH_SIZE, 1))
+        gen_label = create_noisy_labels(0,CONFIG.BATCH_SIZE)
+        real_label = create_noisy_labels(1,CONFIG.BATCH_SIZE)
+        # real_label = np.ones((CONFIG.BATCH_SIZE,1))
         g_losses = []
         d_losses = []
         for step, (lr_batch,hr_batch) in enumerate(data):
@@ -64,9 +68,9 @@ def trainModel(gan,generator,discriminator,vgg,data):
                 discriminator.trainable = True
                 d_loss_gen = discriminator.train_on_batch(gen_imgs,gen_label)
                 d_loss_real = discriminator.train_on_batch(hr_batch,real_label)
-                discriminator.trainable = False
                 d_loss = 0.5 * np.add(d_loss_gen, d_loss_real)
                 d_losses.append(d_loss)
+                discriminator.trainable = False
             
             
             #Train the generator
@@ -83,6 +87,29 @@ def trainModel(gan,generator,discriminator,vgg,data):
         predict_random_image(generator)
     return gan
 
+
+def mse_loss(y_true, y_pred):
+    return K.mean(K.square(y_true - y_pred))
+
+
+def vgg_loss(vgg):
+    def loss(y_true, y_pred):
+        y_true = deprocess_image(y_true)
+        y_pred = deprocess_image(y_pred)
+        ret = mse_loss(vgg(y_true), vgg(y_pred))
+        return ret
+
+    return loss
+
+
+def content_loss(vgg):
+    def loss(y_true, y_pred):
+        return CONFIG.MSE_WEIGHT * mse_loss(y_true, y_pred) + vgg_loss(vgg)(y_true, y_pred)
+
+    return loss
+
+def wasserstein_loss(y_true, y_pred):
+	return K.mean(y_true * y_pred)
 ############################################################
 ################# Model Generation #########################
 ############################################################
