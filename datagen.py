@@ -17,7 +17,9 @@ class DataGenerator(keras.utils.Sequence):
         self.on_epoch_end()
 
     def on_epoch_end(self):
-        self.hr_files = os.listdir(self.hr_dir)[:CONFIG.DATA_SIZE] * self.batch_size
+        self.hr_files = os.listdir(self.hr_dir)
+        np.random.shuffle(self.hr_files)
+        self.hr_files = self.hr_files[:10] * 800
         np.random.shuffle(self.hr_files)
 
     def __len__(self):
@@ -33,13 +35,14 @@ class DataGenerator(keras.utils.Sequence):
             else len(self.hr_files)
         for idx in range(index * self.batch_size, end_idx):
             img = Image.open(f'{self.hr_dir}/{self.hr_files[idx]}')
+            img = img.resize((CONFIG.INPUT_SHAPE[0], CONFIG.INPUT_SHAPE[1]), Image.BICUBIC)
             width, height = img.size
-            # hr_img = normalize_image(preprocess_image(np.array(img)))
-            # lr_img = normalize_image(preprocess_image(
-            #     np.array(img.resize((width // self.down_sample_scale, height // self.down_sample_scale))),
-            # ), min_value=0)
             hr_img = normalize_image(np.array(img))
-            lr_img = normalize_image(np.array(img.resize((width // self.down_sample_scale, height // self.down_sample_scale))), min_value=0)
+            lr_img = normalize_image(
+                np.array(img.resize(
+                    (width // self.down_sample_scale, height // self.down_sample_scale),
+                    Image.BICUBIC)),
+                min_value=0)
 
             hr_batch[idx % self.batch_size] = hr_img
             lr_batch[idx % self.batch_size] = lr_img

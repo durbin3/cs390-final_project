@@ -32,7 +32,6 @@ class Logger:
         lr_shape = tuple([CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)])
         lr = img.resize(lr_shape)
         sr_img = self.generator.predict(np.array(lr)[np.newaxis, ...])
-        # sr_img = deprocess_image(denormalize_image(sr_img[0]))
         sr_img = denormalize_image(sr_img[0])
         with self.writer.as_default():
             tf.summary.image('hr_image', np.array(img)[np.newaxis, ...], step=self.steps)
@@ -59,8 +58,19 @@ class Logger:
                     if len(layer.weights) > 0:
                         tf.summary.histogram(f'discriminator_{layer.name}', layer.weights[0], step=self.steps)
 
+    def log_gradients(self, name, gradient):
+        with self.writer.as_default():
+            tf.summary.histogram(name, gradient, step=self.steps)
+
+    def save_progress(self, epoch):
+        with open('saved_weights/progress.txt', 'w') as f:
+            f.write(f'{epoch}')
+
     def step(self):
         self.steps += 1
+
+    def reset(self):
+        self.steps = 0
 
 
 def create_dir_if_not_exist(dir_name):

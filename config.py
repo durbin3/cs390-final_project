@@ -1,12 +1,12 @@
 class CONFIG:
     B = 16
     DOWN_SAMPLE_SCALE = 4
-    N_INIT_EPOCH = 30
-    N_EPOCH = 10000 
-    INPUT_SHAPE = (256, 256, 3)
+    N_INIT_EPOCH = 1000
+    N_EPOCH = 100
+    INPUT_SHAPE = (96, 96, 3)
     HR_DIR = 'high_res'
     LR_START = 1e-4
-    BATCH_SIZE = 2
+    BATCH_SIZE = 8
     BATCH_SIZE_INIT = 8
     BATCH_SIZE_D = 8
     SAVE_INTERVAL = 1
@@ -15,7 +15,8 @@ class CONFIG:
     ALTERNATE_INTERVAL = 10
     USE_INIT = False
     SAVE_DIR = 'saved_weights'
-    LOAD_WEIGHTS = False
+    LOAD_WEIGHTS = True
+    RESTART = False
     VGG_WEIGHT = 1
     D_WEIGHT = 1e-3
     MSE_WEIGHT = 1e-4

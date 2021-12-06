@@ -16,6 +16,9 @@ import tensorflow.keras.backend as K
 from tensorboard import program
 import datetime
 import matplotlib.pyplot as plt
+from tensorflow.keras.applications.vgg19 import preprocess_input
+from tqdm import tqdm
+
 
 physical_devices = tf.config.list_physical_devices('GPU')
 if len(physical_devices) > 0:
@@ -23,38 +26,19 @@ if len(physical_devices) > 0:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
-def mse_loss(y_true, y_pred):
-    return K.mean(K.square(y_true - y_pred))
-
-
 def vgg_loss(vgg):
     def loss(y_true, y_pred):
         y_true = denormalize_image(y_true)
         y_pred = denormalize_image(y_pred)
-        ret = mse_loss(vgg(y_true), vgg(y_pred))
+        y_true = preprocess_input(y_true)
+        y_pred = preprocess_input(y_pred)
+        ret = MeanSquaredError()(vgg(y_true) / 12.75, vgg(y_pred) / 12.75)
         return ret
-
     return loss
 
 
-def discriminator_loss(y_true, y_pred):
-    return K.sum(-K.log(y_pred))
-
-
-def build_gan(generator, discriminator, vgg) -> Model:
-    discriminator.trainable = False
-    input_shape = (*[CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)], 3)
-    generator_input = Input(input_shape)
-    generator_output = generator(generator_input)
-    # gan = Model(inputs=generator_input, outputs=[generator_output, discriminator(generator_output)])
-    # gan.compile(loss=['mse', 'binary_crossentropy'],
-    #             loss_weights=[CONFIG.VGG_WEIGHT, CONFIG.D_WEIGHT],
-    #             optimizer=Adam(learning_rate=CONFIG.LR_START))
-    gan = Model(inputs=generator_input, outputs=[generator_output])
-    gan.compile(loss=['mse'],
-                loss_weights=[CONFIG.VGG_WEIGHT],
-                optimizer=Adam(learning_rate=CONFIG.LR_START))
-    return gan
+def discriminator_loss(hr, sr):
+    return BinaryCrossentropy()(tf.ones_like(hr), hr) + BinaryCrossentropy()(tf.zeros_like(sr), sr)
 
 
 def train():
@@ -62,88 +46,101 @@ def train():
                             CONFIG.INPUT_SHAPE,
                             down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
                             batch_size=CONFIG.BATCH_SIZE)
-    datagen_d = DataGenerator(CONFIG.HR_DIR,
-                              CONFIG.INPUT_SHAPE,
-                              down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
-                              batch_size=CONFIG.BATCH_SIZE_D)
 
     generator = get_generator((
         CONFIG.INPUT_SHAPE[0] // CONFIG.DOWN_SAMPLE_SCALE,
         CONFIG.INPUT_SHAPE[1] // CONFIG.DOWN_SAMPLE_SCALE,
         3))
     discriminator = get_discriminator(CONFIG.INPUT_SHAPE)
+
+    g_opt = Adam(learning_rate=CONFIG.LR_START)
+    d_opt = Adam(learning_rate=CONFIG.LR_START)
+
     vgg = get_vgg(CONFIG.INPUT_SHAPE)
-    if CONFIG.LOAD_WEIGHTS:
+
+    epochs = CONFIG.N_INIT_EPOCH
+    if not CONFIG.RESTART:
+        if os.path.exists('saved_weights/progress.txt'):
+            with open('saved_weights/progress.txt', 'r') as f:
+                epochs -= int(f.readline())
         generator_path = f'{CONFIG.SAVE_DIR}/generator.h5'
         if os.path.exists(generator_path):
             generator.load_weights(generator_path)
-        discriminator_path = f'{CONFIG.SAVE_DIR}/discriminator.h5'
-        if os.path.exists(discriminator_path):
-            discriminator.load_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
-
-    gan = build_gan(generator, discriminator, vgg)
-    discriminator.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=CONFIG.LR_START))
 
     logger = Logger(generator, discriminator)
     logger.log_image()
     logger.log_img_distribution()
+    breakpoint()
+    for epoch in range(epochs):
+        print(f'Initial Training epoch {epoch}')
+        for step, (lr, hr) in enumerate(tqdm(datagen)):
+            lr = tf.cast(lr, tf.float32)
+            hr = tf.cast(hr, tf.float32)
+            with tf.GradientTape() as g_tape:
+                sr = generator(lr)
+                loss = MeanSquaredError()(hr, sr)
 
-    for epoch in range(CONFIG.N_EPOCH):
-        print(f'Training epoch {epoch}')
-        # train discriminator
-        if epoch % 2 == 0:
-            discriminator.trainable = True
-            for step, (lr_batch, hr_batch) in enumerate(datagen_d):
-                sr_batch = generator.predict(lr_batch)
-                d_loss_real = discriminator.train_on_batch(hr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE_D))
-                d_loss_gen = discriminator.train_on_batch(sr_batch, create_noisy_labels(0, CONFIG.BATCH_SIZE_D))
-                d_loss = np.add(d_loss_real, d_loss_gen) / 2
-                logger.step()
-                logger.log_loss('discriminator loss', d_loss)
-            datagen_d.on_epoch_end()
-            discriminator.trainable = False
-        else:
-            # train gan
-            for step, (lr_batch, hr_batch) in enumerate(datagen):
-                generator.trainable = True
-                # gan_loss = gan.train_on_batch(lr_batch, [hr_batch, create_noisy_labels(1, CONFIG.BATCH_SIZE)])
-                gan_loss = gan.train_on_batch(lr_batch, [hr_batch])
-                generator.trainable = False
-                # print(f'\tgan loss: {gan_loss}')
-                logger.step()
-                logger.log_loss('GAN loss', gan_loss)
-            datagen.on_epoch_end()
+            g_grad = g_tape.gradient(loss, generator.trainable_variables)
+            g_opt.apply_gradients(zip(g_grad, generator.trainable_variables))
 
-        if epoch % CONFIG.PREVIEW_INTERVAL == 0:
-            # predict_random_image(generator)
-            logger.log_image()
-            logger.log_img_distribution()
-            logger.log_weights()
+            logger.log_loss('Generator initial training', loss)
+            if step % 100 == 0:
+                logger.log_image()
+                logger.log_img_distribution()
+                logger.log_gradients('generator gradient', tf.concat([tf.reshape(grad, -1) for grad in g_grad], 0))
+            logger.step()
 
         if epoch % CONFIG.SAVE_INTERVAL == 0:
             create_dir_if_not_exist(CONFIG.SAVE_DIR)
             generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
-            discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
+            logger.save_progress(epoch)
 
+        datagen.on_epoch_end()
+
+    logger.reset()
+    for epoch in range(CONFIG.N_EPOCH):
+        print(f'Training epoch {epoch}')
+        # train discriminator
+        for step, (lr, hr) in enumerate(tqdm(datagen)):
+            lr = tf.cast(lr, tf.float32)
+            hr = tf.cast(hr, tf.float32)
+            with tf.GradientTape() as g_tape, tf.GradientTape() as d_tape:
+                sr = generator(lr)
+
+                d_hr = discriminator(hr)
+                d_sr = discriminator(sr)
+
+                loss_x = vgg_loss(vgg)(hr, sr)
+                loss_gen = BinaryCrossentropy()(tf.ones_like(d_sr), d_sr)
+                loss_g = loss_x + CONFIG.D_WEIGHT * loss_gen
+
+                loss_d = discriminator_loss(d_hr, d_sr)
+
+            g_grad = g_tape.gradient(loss_g, generator.trainable_variables)
+            g_opt.apply_gradients(zip(g_grad, generator.trainable_variables))
+
+            if step % 3 == 0:
+                d_grad = d_tape.gradient(loss_d, discriminator.trainable_variables)
+                d_opt.apply_gradients(zip(d_grad, discriminator.trainable_variables))
+
+            logger.log_loss('discriminator loss', tf.reduce_mean(loss_d))
+            logger.log_loss('total loss', tf.reduce_mean(loss_g))
+
+            if step % 50 == 0:
+                logger.log_image()
+                logger.log_img_distribution()
+                logger.log_weights()
+
+            if epoch % CONFIG.SAVE_INTERVAL == 0:
+                create_dir_if_not_exist(CONFIG.SAVE_DIR)
+                generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
+                discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
+
+            logger.step()
+        datagen.on_epoch_end()
 
 def main():
     train()
-
-def test():
-    datagen = DataGenerator(CONFIG.HR_DIR,
-                            CONFIG.INPUT_SHAPE,
-                            down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
-                            batch_size=CONFIG.BATCH_SIZE)
-
-    for lr, hr in datagen:
-        print(hr.shape)
-        print(np.min(hr))
-        print(np.max(hr))
-        print(hr)
-        print(np.min(lr))
-        print(np.max(lr))
-        # for i in range(10):
-        #     Image.fromarray(hr[i].astype(np.uint8)).show()
 
 
 if __name__ == '__main__':

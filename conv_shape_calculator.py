@@ -1,3 +1,9 @@
+from config import CONFIG
+from datagen import DataGenerator
+from utils import *
+import matplotlib.pyplot as plt
+
+
 class ConvShapeCalculator:
     def __init__(self, input_shape):
         self.shape = input_shape
@@ -23,4 +29,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    datagen = DataGenerator(CONFIG.HR_DIR,
+                            CONFIG.INPUT_SHAPE,
+                            down_sample_scale=CONFIG.DOWN_SAMPLE_SCALE,
+                            batch_size=CONFIG.BATCH_SIZE)
+    Image.fromarray((datagen[0][0][0] * 255).astype(np.uint8)).show()
