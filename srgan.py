@@ -3,8 +3,6 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # uncomment if using cpu
 from tensorflow import keras
-from tensorflow.keras.losses import MeanSquaredError, binary_crossentropy, BinaryCrossentropy
-from tensorflow.keras.metrics import BinaryAccuracy
 from tensorflow.keras.optimizers import Adam, SGD
 import tensorflow as tf
 from config import CONFIG
@@ -12,10 +10,6 @@ from model import *
 from datagen import DataGenerator
 import numpy as np
 from utils import *
-import tensorflow.keras.backend as K
-from tensorboard import program
-import datetime
-import matplotlib.pyplot as plt
 from tensorflow.keras.applications.vgg19 import preprocess_input
 from tqdm import tqdm
 
@@ -51,17 +45,15 @@ def train():
         CONFIG.INPUT_SHAPE[1] // CONFIG.DOWN_SAMPLE_SCALE,
         3))
     discriminator = get_discriminator(CONFIG.INPUT_SHAPE)
-
     vgg = get_vgg(CONFIG.INPUT_SHAPE)
 
-    epochs = CONFIG.N_INIT_EPOCH
     if not CONFIG.RESTART:
-        if os.path.exists('saved_weights/progress.txt'):
-            with open('saved_weights/progress.txt', 'r') as f:
-                epochs -= int(f.readline())
         generator_path = f'{CONFIG.SAVE_DIR}/generator.h5'
         if os.path.exists(generator_path):
             generator.load_weights(generator_path)
+        discriminator_path = f'{CONFIG.SAVE_DIR}/discriminator.h5'
+        if os.path.exists(generator_path):
+            discriminator.load_weights(discriminator_path)
 
     logger = Logger(generator, discriminator)
     logger.log_image()
@@ -70,34 +62,33 @@ def train():
     lr = tf.Variable(CONFIG.LR_START)
 
     generator.compile(optimizer=Adam(learning_rate=lr), loss='mse')
-    for epoch in range(epochs):
-        print(f'Initial Training epoch {epoch}')
-        for step, (lr, hr) in enumerate(tqdm(datagen)):
-            loss = generator.train_on_batch(lr, hr)
+    if not logger.get_bool('init_done'):
+        for epoch in range(logger.get_int('epoch'), CONFIG.N_INIT_EPOCH):
+            for step, (lr, hr) in enumerate(tqdm(datagen, desc=f'Initial Training epoch {epoch}')):
+                loss = generator.train_on_batch(lr, hr)
 
-            logger.log_loss('Generator initial training', loss)
-            if step % 100 == 0:
-                logger.log_image()
-                logger.log_img_distribution()
-            logger.step()
+                logger.log_loss('Generator initial training', loss)
+                if step % CONFIG.LOG_INTERVAL == 0:
+                    logger.log_image()
+                    logger.log_img_distribution()
+                logger.step()
 
-        if logger.steps > 100000:
-            lr.assign(CONFIG.LR_START / 10)
+            if epoch % CONFIG.SAVE_INTERVAL == 0:
+                create_dir_if_not_exist(CONFIG.SAVE_DIR)
+                generator.save_weights(f'{CONFIG.SAVE_DIR}/generator_init_{epoch}.h5')
+                generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
 
-        if epoch % CONFIG.SAVE_INTERVAL == 0:
-            create_dir_if_not_exist(CONFIG.SAVE_DIR)
-            generator.save_weights(f'{CONFIG.SAVE_DIR}/generator_init_{epoch}.h5')
-            logger.save_progress(epoch)
+            logger.save_progress('epoch', epoch)
+            datagen.on_epoch_end()
 
-        datagen.on_epoch_end()
-
-    logger.reset()
     discriminator.compile(optimizer=Adam(learning_rate=lr), loss='binary_crossentropy')
     gan = build_gan(generator, discriminator, vgg)
-    for epoch in range(CONFIG.N_EPOCH):
-        print(f'Training epoch {epoch}')
-        # train discriminator
-        for step, (lr, hr) in enumerate(tqdm(datagen)):
+    epoch_start = 0 if logger.get_bool('init') else logger.get_int('epoch')
+    logger.save_progress('init_done', True)
+    for epoch in range(epoch_start,  CONFIG.N_EPOCH):
+        if logger.steps > 100000:
+            lr.assign(CONFIG.LR_START / 10)
+        for step, (lr, hr) in enumerate(tqdm(datagen, desc=f'Training epoch {epoch}')):
             sr = generator.predict(lr)
 
             if step % 50 == 0:
@@ -113,16 +104,19 @@ def train():
             g_loss, _, _ = gan.train_on_batch(lr, [vgg_features, create_noisy_labels(1, CONFIG.BATCH_SIZE)])
 
             logger.log_loss('total loss', tf.reduce_mean(g_loss))
-            if step % 50 == 0:
+            if step % CONFIG.UPDATE_D_EVERY == 0:
                 logger.log_image()
                 logger.log_img_distribution()
 
             if epoch % CONFIG.SAVE_INTERVAL == 0:
                 create_dir_if_not_exist(CONFIG.SAVE_DIR)
                 generator.save_weights(f'{CONFIG.SAVE_DIR}/generator_{epoch}.h5')
+                generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
                 discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator_{epoch}.h5')
+                discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
 
             logger.step()
+        logger.save_progress('epoch', epoch)
         datagen.on_epoch_end()
 
 
