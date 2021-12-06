@@ -103,12 +103,9 @@ def deprocess_image(x):
 
 def denormalize_image(img):
     if isinstance(img, np.ndarray):
-<<<<<<< HEAD
         # return np.clip((img + 1) * 127.5, 0, 255).astype(np.uint8)
         return np.clip(img*255,0,255).astype(np.uint8)
-=======
-        return np.clip((img + 1) * 127.5, 0, 255).astype(np.uint8)
->>>>>>> d19cdb9dd4019ac1e594d359482c1e2c6e0d3c3d
+        # return np.clip((img + 1) * 127.5, 0, 255).astype(np.uint8)
     else:
         # return tf.multiply(tf.add(img, 1), 127.5)
         return tf.multiply(img,255)

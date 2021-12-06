@@ -5,3 +5,4 @@ images/
 saved_weights/
 __pycache__/
 epoch62_first/
+data/
