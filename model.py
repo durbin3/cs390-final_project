@@ -6,6 +6,7 @@ from tensorflow.keras.activations import sigmoid
 from tensorflow.keras.initializers import RandomNormal
 import tensorflow as tf
 from config import CONFIG
+from utils import *
 
 
 def PixelShuffler():
@@ -13,41 +14,42 @@ def PixelShuffler():
 
 
 def get_generator(input_shape):
-    init = RandomNormal(mean=0.0, stddev=0.02)
-
     inp = Input(input_shape)
-    x = Conv2D(64, 9, padding='same', kernel_initializer=init)(inp)
+    x = Lambda(normalize_input)(inp)
+    x = Conv2D(64, 9, padding='same')(x)
     x = PReLU(shared_axes=[1, 2])(x)
     conv1 = x
 
     for _ in range(CONFIG.B):
-        rx = Conv2D(64, 3, padding='same', kernel_initializer=init)(x)
+        rx = Conv2D(64, 3, padding='same')(x)
         rx = BatchNormalization(momentum=CONFIG.MOMENTUM)(rx)
         rx = PReLU(shared_axes=[1, 2])(rx)
-        rx = Conv2D(64, 3, padding='same', kernel_initializer=init)(rx)
+        rx = Conv2D(64, 3, padding='same')(rx)
         rx = BatchNormalization(momentum=CONFIG.MOMENTUM)(rx)
         rx = Add()([rx, x])
         x = rx
 
-    x = Conv2D(64, 3, padding='same', kernel_initializer=init)(x)
+    x = Conv2D(64, 3, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = PReLU(shared_axes=[1, 2])(x)
     x = Add()([x, conv1])
 
-    x = Conv2D(256, 3, padding='same', kernel_initializer=init)(x)
-    x = PixelShuffler()(x)
+    x = Conv2D(256, 3, padding='same')(x)
+    x = UpSampling2D(size=2)(x)
     x = PReLU(shared_axes=[1, 2])(x)
-    x = Conv2D(256, 3, padding='same', kernel_initializer=init)(x)
-    x = PixelShuffler()(x)
+    x = Conv2D(256, 3, padding='same')(x)
+    x = UpSampling2D(size=2)(x)
     x = PReLU(shared_axes=[1, 2])(x)
 
-    x = Conv2D(3, 9, padding='same', activation='tanh', kernel_initializer=init)(x)
+    x = Conv2D(3, 9, padding='same', activation='tanh')(x)
+    x = Lambda(denormalize_image)(x)
     return Model(inputs=inp, outputs=x, name='srgan_generator')
 
 
 def get_discriminator(input_shape):
     inp = Input(input_shape)
-    x = Conv2D(64, 3, 1, padding='same')(inp)
+    x = Lambda(normalize_output)(inp)
+    x = Conv2D(64, 3, 1, padding='same')(x)
     x = BatchNormalization(momentum=CONFIG.MOMENTUM)(x)
     x = LeakyReLU(0.2)(x)
     x = Conv2D(64, 3, 2, padding='same')(x)
@@ -88,6 +90,6 @@ def get_vgg(input_shape):
     vgg19.trainable = False
     for layer in vgg19.layers:
         layer.trainable = False
-    model = Model(inputs=vgg19.inputs, outputs=vgg19.get_layer('block5_conv4').output, name='srgan_vgg')
+    model = Model(inputs=vgg19.inputs, outputs=vgg19.layers[20].output, name='srgan_vgg')
     model.trainable = False
     return model
