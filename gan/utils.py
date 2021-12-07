@@ -50,33 +50,34 @@ def denormalize_image(img):
     else:
         return tf.multiply(img,255)
 
-def predict_random_image(generator, show=False):
+def predict_random_image(generator, epoch=None, show=False):
     create_dir_if_not_exist('images')
     images = os.listdir(CONFIG.HR_DIR)
     img = Image.open(f'{CONFIG.HR_DIR}/{np.random.choice(images, 1)[0]}')
-    if show:
-        img.show()
-    else:
-        img.save("images/hr.jpg")
     lr_shape = tuple([CONFIG.INPUT_SHAPE[i] // CONFIG.DOWN_SAMPLE_SCALE for i in range(2)])
     lr = img.resize(lr_shape)
-    if show:
-        lr.show()
-    else: 
-        lr.save("images/lr.jpg")
     sr_img = generator.predict(np.array(lr)[np.newaxis, ...])
     output_image = Image.fromarray(denormalize_image(sr_img[0]))
     if show:
+        img.show()
+        lr.show()
         output_image.show()
     else:
-        output_image.save("images/generated.jpg")
-        Image.fromarray(np.clip(sr_img[0]*255,0,255).astype(np.uint8)).save("images/generated_2.jpg")
-        Image.fromarray(deprocess_image(sr_img[0])).save("images/generated_keras.jpg")
-        Image.fromarray(np.clip((sr_img[0]+1)*127.5,0,255).astype(np.uint8)).save("images/generated_3.jpg")
-    # return sr_img[0]
-    #     sr_img = denormalize_image(sr_img)
-    #     Image.fromarray(deprocess_image(sr_img[0])).show()
-    # return sr_img[0]
+        if epoch is None:
+            img.save("images/hr.jpg")
+            lr.save("images/lr.jpg")
+            output_image.save("images/generated.jpg")
+            Image.fromarray(np.clip(sr_img[0]*255,0,255).astype(np.uint8)).save("images/generated_2.jpg")
+            Image.fromarray(deprocess_image(sr_img[0])).save("images/generated_keras.jpg")
+            Image.fromarray(np.clip((sr_img[0]+1)*127.5,0,255).astype(np.uint8)).save("images/generated_3.jpg")
+        else:
+            path = f"images/epoch_{epoch}/"
+            img.save(f"{path}hr.jpg")
+            lr.save(f"{path}lr.jpg")
+            output_image.save(f"{path}generated.jpg")
+            Image.fromarray(np.clip(sr_img[0]*255,0,255).astype(np.uint8)).save(f"{path}generated_2.jpg")
+            Image.fromarray(deprocess_image(sr_img[0])).save(f"{path}generated_keras.jpg")
+            Image.fromarray(np.clip((sr_img[0]+1)*127.5,0,255).astype(np.uint8)).save(f"{path}generated_3.jpg")
 
 
 

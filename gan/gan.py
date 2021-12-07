@@ -77,8 +77,16 @@ def trainModel(gan,generator,discriminator,vgg,data):
         g_loss = np.sum(g_losses, axis=0) / len(g_losses)
         d_loss = np.sum(d_losses, axis=0) / len(d_losses)
         print("\tg_loss:", g_loss, "d_loss:", d_loss)
-        predict_random_image(generator)
+        create_dir_if_not_exist(CONFIG.SAVE_DIR+"/epoch_"+str(e))
+        create_dir_if_not_exist("images/epoch_"+str(e))
+        predict_random_image(generator,e)
+        
+        if e % 10 == 0:
+            generator.save_weights(f'{CONFIG.SAVE_DIR}/epoch_{e}/generator.h5')
+            discriminator.save_weights(f'{CONFIG.SAVE_DIR}/epoch_{e}/discriminator.h5')
+
         data.on_epoch_end()
+        
     return gan
 
 

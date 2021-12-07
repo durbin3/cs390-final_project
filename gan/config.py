@@ -3,11 +3,11 @@ class CONFIG:
     DOWN_SAMPLE_SCALE = 4
     N_INIT_EPOCH = 30
     N_EPOCH = 10000 
-    INPUT_SHAPE = (100, 100, 3)
-    HR_DIR = 'data/train/hr'
+    INPUT_SHAPE = (256, 256, 3)
+    HR_DIR = 'data/high_res'
     LR_DIR = 'data/train/lr'
     LR_START = 1e-4
-    BATCH_SIZE = 48
+    BATCH_SIZE = 6
     BATCH_SIZE_INIT = 8
     BATCH_SIZE_D = 8
     SAVE_INTERVAL = 1
