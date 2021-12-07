@@ -7,18 +7,29 @@ from config import CONFIG
 
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, hr_dir, hr_shape, down_sample_scale=4, batch_size=32):
+    def __init__(self, hr_dir, lr_dir,hr_shape, down_sample_scale=4, batch_size=32):
         self.hr_shape = hr_shape
         self.lr_shape = (hr_shape[0] // down_sample_scale, hr_shape[1] // down_sample_scale, hr_shape[2])
         self.hr_dir = hr_dir
+        self.lr_dir = lr_dir
         self.down_sample_scale = down_sample_scale
         self.batch_size = batch_size
         self.hr_files = os.listdir(self.hr_dir)
+        # self.lr_files = os.listdir(self.lr_dir)
+        
         self.on_epoch_end()
 
     def on_epoch_end(self):
-        self.hr_files = os.listdir(self.hr_dir)[:CONFIG.DATA_SIZE] * self.batch_size
+        self.hr_files = os.listdir(self.hr_dir)[:CONFIG.DATA_SIZE]
+        # self.lr_files = os.listdir(self.lr_dir)[:CONFIG.DATA_SIZE]
         np.random.shuffle(self.hr_files)
+        # combined = np.array(self.hr_files)
+        # combined = np.vstack((combined,self.lr_files))
+        # combined = np.transpose(combined)
+        # np.random.shuffle(combined)
+        
+        # self.hr_files = combined[:,0]
+        # self.lr_files = combined[:,1]
 
     def __len__(self):
         return len(self.hr_files) // self.batch_size
@@ -33,26 +44,13 @@ class DataGenerator(keras.utils.Sequence):
             else len(self.hr_files)
         for idx in range(index * self.batch_size, end_idx):
             img = Image.open(f'{self.hr_dir}/{self.hr_files[idx]}')
+            # lr = Image.open(f'{self.lr_dir}/{self.lr_files[idx]}')
             width, height = img.size
-            # hr_img = normalize_image(preprocess_image(np.array(img)))
-            # lr_img = normalize_image(preprocess_image(
-            #     np.array(img.resize((width // self.down_sample_scale, height // self.down_sample_scale))),
-            # ), min_value=0)
             hr_img = normalize_image(np.array(img))
+            # lr_img = normalize_image(np.array(lr))
             lr_img = normalize_image(np.array(img.resize((width // self.down_sample_scale, height // self.down_sample_scale))), min_value=0)
+
 
             hr_batch[idx % self.batch_size] = hr_img
             lr_batch[idx % self.batch_size] = lr_img
         return lr_batch, hr_batch
-
-
-def test_data_generator():
-    gen = DataGenerator('high_res', (256, 256, 3))
-    assert len(gen[0]) == 2
-    assert gen[0][0].shape == (CONFIG.BATCH_SIZE, 64, 64, 3)
-    assert gen[0][1].shape == (CONFIG.BATCH_SIZE, 256, 256, 3)
-    print('data generator test passed')
-
-
-if __name__ == '__main__':
-    test_data_generator()
