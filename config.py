@@ -7,12 +7,12 @@ class CONFIG:
     BATCH_SIZE = 8  # make this as high your pc can handle
     SAVE_INTERVAL = 10
     LOG_INTERVAL = 100
-    RESTART = True
+    RESTART = False
 
     # training settings
     # each epoch is 8000 / BATCH_SIZE steps
     # TODO: TUNE
-    N_INIT_EPOCH = 100  # no. of initial generator training epoch
+    N_INIT_EPOCH = 0  # no. of initial generator training epoch
     # TODO: TUNE
     N_EPOCH = 200  # no. of gan training epoch
     LR_START = 1e-4  # learning rate

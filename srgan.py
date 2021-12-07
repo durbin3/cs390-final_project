@@ -12,6 +12,7 @@ import numpy as np
 from utils import *
 from tensorflow.keras.applications.vgg19 import preprocess_input
 from tqdm import tqdm
+import tensorflow.keras.backend as K
 
 
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -52,7 +53,7 @@ def train():
         if os.path.exists(generator_path):
             generator.load_weights(generator_path)
         discriminator_path = f'{CONFIG.SAVE_DIR}/discriminator.h5'
-        if os.path.exists(generator_path):
+        if os.path.exists(discriminator_path):
             discriminator.load_weights(discriminator_path)
 
     logger = Logger(generator, discriminator)
@@ -64,6 +65,7 @@ def train():
     generator.compile(optimizer=Adam(learning_rate=lr), loss='mse')
     if not logger.get_bool('init_done'):
         for epoch in range(logger.get_int('epoch'), CONFIG.N_INIT_EPOCH):
+            logger.save_image_batch()
             for step, (lr, hr) in enumerate(tqdm(datagen, desc=f'Initial Training epoch {epoch}')):
                 loss = generator.train_on_batch(lr, hr)
 
@@ -81,13 +83,13 @@ def train():
             logger.save_progress('epoch', epoch)
             datagen.on_epoch_end()
 
+    logger.steps = 100000
     discriminator.compile(optimizer=Adam(learning_rate=lr), loss='binary_crossentropy')
     gan = build_gan(generator, discriminator, vgg)
-    epoch_start = 0 if logger.get_bool('init') else logger.get_int('epoch')
+    epoch_start = logger.get_int('epoch') if logger.get_bool('init_done') else 0
     logger.save_progress('init_done', True)
     for epoch in range(epoch_start,  CONFIG.N_EPOCH):
-        if logger.steps > 100000:
-            lr.assign(CONFIG.LR_START / 10)
+        logger.save_image_batch()
         for step, (lr, hr) in enumerate(tqdm(datagen, desc=f'Training epoch {epoch}')):
             sr = generator.predict(lr)
 
@@ -108,12 +110,12 @@ def train():
                 logger.log_image()
                 logger.log_img_distribution()
 
-            if epoch % CONFIG.SAVE_INTERVAL == 0:
-                create_dir_if_not_exist(CONFIG.SAVE_DIR)
-                generator.save_weights(f'{CONFIG.SAVE_DIR}/generator_{epoch}.h5')
-                generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
-                discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator_{epoch}.h5')
-                discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
+        if epoch % CONFIG.SAVE_INTERVAL == 0:
+            create_dir_if_not_exist(CONFIG.SAVE_DIR)
+            generator.save_weights(f'{CONFIG.SAVE_DIR}/generator_{epoch}.h5')
+            generator.save_weights(f'{CONFIG.SAVE_DIR}/generator.h5')
+            discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator_{epoch}.h5')
+            discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
 
             logger.step()
         logger.save_progress('epoch', epoch)

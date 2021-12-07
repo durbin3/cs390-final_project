@@ -6,6 +6,7 @@ import tensorflow as tf
 import datetime
 from tensorboard import program
 import tensorflow.keras as keras
+import imageio
 
 
 class Logger:
@@ -52,10 +53,12 @@ class Logger:
                 tf.summary.histogram(f'{c} distribution', dist[:, i], step=self.steps)
 
     def save_image_batch(self):
-        for image in self.save_images:
-            image = Image.open(f'{CONFIG.HR_DIR}/{image}')
-            sr_img = self.generator.predict(downsample_image(image)[np.newaxis, ...])[0]
-            Image.fromarray(sr_img).save(f'saved_images/{image.split(".")[0]}/{self.steps}.png')
+        for file in self.save_images:
+            image = Image.open(f'{CONFIG.HR_DIR}/{file}')
+            sr_img = self.generator.predict(downsample_image(image)[np.newaxis, ...])[0].astype(np.uint8)
+            dir = f'saved_images/{file.split(".")[0]}'
+            create_dir_if_not_exist(dir)
+            Image.fromarray(sr_img).save(f'{dir}/{self.steps}.png')
 
     def log_weights(self):
         with self.writer.as_default():
@@ -105,7 +108,7 @@ def read_progress():
 def write_progress(progress):
     with open('saved_weights/progress.txt', 'w') as f:
         for k, v in progress.items():
-            f.write(f'{k}:{v}\n')
+            f.write(f'{k}:{v}')
 
 
 def create_dir_if_not_exist(dir_name):
@@ -149,3 +152,24 @@ def downsample_image(img):
 
 def get_time():
     return datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def make_gifs():
+    for image_dir in os.listdir('saved_images'):
+        make_gif(image_dir)
+
+
+def make_gif(image_dir):
+    images = []
+    for image in sorted(os.listdir(f'saved_images/{image_dir}'), key=lambda x: int(x.split('.')[0] if '.png' in x else -1)):
+        if '.png' in image:
+            images.append(imageio.imread(f'saved_images/{image_dir}/{image}'))
+    imageio.mimsave(f'saved_images/{image_dir}/progress.gif', images, duration=0.5)
+
+
+def main():
+    make_gif('819 berry progress')
+
+
+if __name__ == '__main__':
+    main()

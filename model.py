@@ -7,6 +7,7 @@ from tensorflow.keras.initializers import RandomNormal
 import tensorflow as tf
 from config import CONFIG
 from utils import *
+from tqdm import tqdm
 
 
 def PixelShuffler():
@@ -93,3 +94,65 @@ def get_vgg(input_shape):
     model = Model(inputs=vgg19.inputs, outputs=vgg19.layers[20].output, name='srgan_vgg')
     model.trainable = False
     return model
+
+
+def build_generator(weight):
+    generator = get_generator((
+        CONFIG.INPUT_SHAPE[0] // CONFIG.DOWN_SAMPLE_SCALE,
+        CONFIG.INPUT_SHAPE[1] // CONFIG.DOWN_SAMPLE_SCALE,
+        3))
+    generator.load_weights(f'saved_weights/{weight}')
+    return generator
+
+
+def gen_output(generator, lr):
+    return generator.predict(lr[np.newaxis, ...])
+
+
+def show_result(filename, generator):
+    hr = Image.open(f'high_res/{filename}.jpg')
+    hr = hr.resize(CONFIG.INPUT_SHAPE[:2])
+    hr.show()
+    lr = downsample_image(hr)
+    Image.fromarray(lr).show()
+    sr = gen_output(generator, lr)
+    Image.fromarray(sr[0].astype(np.uint8)).show()
+
+
+def show_result_cmd():
+    generator = build_generator('generator.h5')
+    img = input('img: ')
+    while img != 'end':
+        show_result(img, generator)
+        img = input('img: ')
+
+
+def show_progress(img, save_dir):
+    create_dir_if_not_exist(f'saved_images/{save_dir}')
+    weights = []
+    after = []
+    for weight in os.listdir('saved_weights'):
+        if 'generator_' in weight:
+            if 'init' in weight:
+                weights += [weight]
+            else:
+                after += [weight]
+    get_step = lambda x: int(x.split('_')[-1].split('.')[0])
+    weights.sort(key=get_step)
+    after.sort(key=get_step)
+    weights += after
+    hr = Image.open(f'high_res/{img}.jpg')
+    lr = downsample_image(hr)
+    for weight in tqdm(weights):
+        generator = build_generator(weight)
+        sr = gen_output(generator, lr)
+        Image.fromarray(sr[0].astype(np.uint8)).save(f'saved_images/{save_dir}/{get_step(weight)}.png')
+
+
+
+def main():
+    show_progress('819 berry', '819 berry progress')
+
+
+if __name__ == '__main__':
+    main()
