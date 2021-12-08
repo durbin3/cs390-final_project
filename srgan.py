@@ -60,9 +60,7 @@ def train():
     logger.log_image()
     logger.log_img_distribution()
 
-    lr = tf.Variable(CONFIG.LR_START)
-
-    generator.compile(optimizer=Adam(learning_rate=lr), loss='mse')
+    generator.compile(optimizer=Adam(learning_rate=CONFIG.LR_START), loss='mse')
     if not logger.get_bool('init_done'):
         for epoch in range(logger.get_int('epoch'), CONFIG.N_INIT_EPOCH):
             logger.save_image_batch()
@@ -83,13 +81,16 @@ def train():
             logger.save_progress('epoch', epoch)
             datagen.on_epoch_end()
 
-    logger.steps = 100000
-    discriminator.compile(optimizer=Adam(learning_rate=lr), loss='binary_crossentropy')
+    discriminator.compile(optimizer=Adam(learning_rate=CONFIG.LR_START), loss='binary_crossentropy')
     gan = build_gan(generator, discriminator, vgg)
+    K.set_value(gan.optimizer.learning_rate, CONFIG.LR_START)
     epoch_start = logger.get_int('epoch') if logger.get_bool('init_done') else 0
     logger.save_progress('init_done', True)
     for epoch in range(epoch_start,  CONFIG.N_EPOCH):
         logger.save_image_batch()
+        if epoch % 100 == 0:
+            K.set_value(gan.optimizer.learning_rate, CONFIG.LR_START / 10)
+            K.set_value(discriminator.optimizer.learning_rate, CONFIG.LR_START / 10)
         for step, (lr, hr) in enumerate(tqdm(datagen, desc=f'Training epoch {epoch}')):
             sr = generator.predict(lr)
 
@@ -110,6 +111,7 @@ def train():
                 logger.log_image()
                 logger.log_img_distribution()
 
+            logger.step()
         if epoch % CONFIG.SAVE_INTERVAL == 0:
             create_dir_if_not_exist(CONFIG.SAVE_DIR)
             generator.save_weights(f'{CONFIG.SAVE_DIR}/generator_{epoch}.h5')
@@ -117,7 +119,6 @@ def train():
             discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator_{epoch}.h5')
             discriminator.save_weights(f'{CONFIG.SAVE_DIR}/discriminator.h5')
 
-            logger.step()
         logger.save_progress('epoch', epoch)
         datagen.on_epoch_end()
 

@@ -149,9 +149,8 @@ def show_progress(img, save_dir):
         Image.fromarray(sr[0].astype(np.uint8)).save(f'saved_images/{save_dir}/{get_step(weight)}.png')
 
 
-
 def main():
-    show_progress('819 berry', '819 berry progress')
+    show_progress('1 bird', '1 bird progress')
 
 
 if __name__ == '__main__':

@@ -14,6 +14,8 @@ class Logger:
         self.generator = generator
         self.discriminator = discriminator
         self.progress = read_progress()
+        if CONFIG.RESTART:
+            self.progress = {}
         self.log_dir = 'logs/' + get_time()
         self.writer = tf.summary.create_file_writer(self.log_dir, flush_millis=1000)
         tb = program.TensorBoard()
@@ -21,8 +23,9 @@ class Logger:
         self.url = tb.launch()
         print(f"Tensorflow listening on {self.url}")
 
-        self.steps = 0
+        self.steps = (self.get_int('epoch') + 1) * 1000
         self.save_images = np.random.choice(os.listdir(CONFIG.HR_DIR), 5)
+        self.save_progress('saved images', ','.join(self.save_images))
 
     def log_loss(self, name, value):
         with self.writer.as_default():
@@ -101,6 +104,8 @@ def read_progress():
     with open('saved_weights/progress.txt', 'r') as f:
         for line in f.readlines():
             line = line.split(':')
+            if len(line) < 2:
+                continue
             progress[line[0]] = line[1]
     return progress
 
@@ -108,7 +113,7 @@ def read_progress():
 def write_progress(progress):
     with open('saved_weights/progress.txt', 'w') as f:
         for k, v in progress.items():
-            f.write(f'{k}:{v}')
+            f.write(f'{k}:{v}\n')
 
 
 def create_dir_if_not_exist(dir_name):
@@ -167,8 +172,28 @@ def make_gif(image_dir):
     imageio.mimsave(f'saved_images/{image_dir}/progress.gif', images, duration=0.5)
 
 
+def make_collages():
+    for image_dir in os.listdir('saved_images'):
+        make_collage(image_dir)
+
+
+def make_collage(image_dir):
+    images = np.empty((CONFIG.INPUT_SHAPE[0], 0, 3))
+    image_dirs = [d for d in os.listdir(f'saved_images/{image_dir}') if d.split('.')[0].isnumeric()]
+    image_dirs = sorted(image_dirs,
+                        key=lambda x: int(x.split('.')[0]))
+    if len(image_dirs) < 8:
+        return
+    image_dirs = image_dirs[::len(image_dirs) // 6]
+    print(len(image_dirs))
+    for img_path in image_dirs:
+        if '.png' in img_path:
+            images = np.hstack((images, np.array(Image.open(f'saved_images/{image_dir}/{img_path}'))))
+    Image.fromarray(images.astype(np.uint8)).save(f'saved_images/{image_dir}/collage.png')
+
+
 def main():
-    make_gif('819 berry progress')
+    make_collages()
 
 
 if __name__ == '__main__':
