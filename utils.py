@@ -177,14 +177,14 @@ def make_collages():
         make_collage(image_dir)
 
 
-def make_collage(image_dir):
+def make_collage(image_dir, size=10):
     images = np.empty((CONFIG.INPUT_SHAPE[0], 0, 3))
     image_dirs = [d for d in os.listdir(f'saved_images/{image_dir}') if d.split('.')[0].isnumeric()]
     image_dirs = sorted(image_dirs,
                         key=lambda x: int(x.split('.')[0]))
     if len(image_dirs) < 8:
         return
-    image_dirs = image_dirs[::len(image_dirs) // 6]
+    image_dirs = image_dirs[::len(image_dirs) // size][:size]
     print(len(image_dirs))
     for img_path in image_dirs:
         if '.png' in img_path:
@@ -193,7 +193,7 @@ def make_collage(image_dir):
 
 
 def main():
-    make_collages()
+    make_collage('13 bird progress')
 
 
 if __name__ == '__main__':

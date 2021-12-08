@@ -127,7 +127,8 @@ def show_result_cmd():
         img = input('img: ')
 
 
-def show_progress(img, save_dir):
+def show_progress(img):
+    save_dir = f'{img} progress'
     create_dir_if_not_exist(f'saved_images/{save_dir}')
     weights = []
     after = []
@@ -150,7 +151,7 @@ def show_progress(img, save_dir):
 
 
 def main():
-    show_progress('1 bird', '1 bird progress')
+    show_progress('1 berry')
 
 
 if __name__ == '__main__':
